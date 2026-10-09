@@ -1,4 +1,15 @@
-export type PortType = 'conditioning' | 'noise' | 'sampler' | string;
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface Viewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+export type PortType = 'conditioning' | 'noise' | 'sampler' | 'latent' | 'image' | string;
 
 export interface PortTheme {
   color: string;
@@ -6,12 +17,26 @@ export interface PortTheme {
   name: string;
 }
 
-export interface Point {
-  x: number;
-  y: number;
+export interface PortDefinition {
+  id: string;
+  label: string;
+  type: PortType;
+}
+
+export interface FlowNode {
+  id: string;
+  type: string;
+  title: string;
+  iconType: string;
+  position: Point;
+  width?: number;
+  inputs: PortDefinition[];
+  outputs: PortDefinition[];
+  data?: Record<string, unknown>;
 }
 
 export interface Connection {
+  id: string;
   fromNodeId: string;
   fromPort: string;
   toNodeId: string;
@@ -23,6 +48,7 @@ export interface Connection {
 export interface DraggingState {
   fromNodeId: string;
   fromPort: string;
+  fromPortType: PortType;
   fromPoint: Point;
   currentPoint: Point;
   theme: PortTheme;

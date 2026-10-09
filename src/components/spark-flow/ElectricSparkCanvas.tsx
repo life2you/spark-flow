@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import type { Point } from '../../types';
+import type { Point, Viewport } from '../../types';
 
 interface EmberParticle {
   x: number;
@@ -9,6 +9,7 @@ interface EmberParticle {
   alpha: number;
   size: number;
   life: number;
+  color: string;
 }
 
 interface ElectricSparkCanvasProps {
@@ -18,12 +19,14 @@ interface ElectricSparkCanvasProps {
     color: string;
     glow: string;
   } | null;
+  viewport?: Viewport;
   jitterAmplitude?: number;
   enableEmberParticles?: boolean;
 }
 
 export const ElectricSparkCanvas: React.FC<ElectricSparkCanvasProps> = ({
   activeSpark,
+  viewport = { x: 0, y: 0, zoom: 1 },
   jitterAmplitude = 14,
   enableEmberParticles = true,
 }) => {
@@ -50,7 +53,15 @@ export const ElectricSparkCanvas: React.FC<ElectricSparkCanvasProps> = ({
     resize();
     window.addEventListener('resize', resize);
 
-    // 绘制单条带噪波折线
+    // 将世界坐标转为屏幕视口坐标
+    const toScreen = (p: Point): Point => {
+      return {
+        x: p.x * viewport.zoom + viewport.x,
+        y: p.y * viewport.zoom + viewport.y,
+      };
+    };
+
+    // 绘制带噪波折线
     const drawJitterPath = (
       x1: number,
       y1: number,
@@ -86,8 +97,12 @@ export const ElectricSparkCanvas: React.FC<ElectricSparkCanvasProps> = ({
 
       // 1. 绘制电火花电弧
       if (activeSpark) {
-        const { p1, p2, color, glow } = activeSpark;
-        const mainPoints = drawJitterPath(p1.x, p1.y, p2.x, p2.y, jitterAmplitude);
+        const { color, glow } = activeSpark;
+        const sp1 = toScreen(activeSpark.p1);
+        const sp2 = toScreen(activeSpark.p2);
+
+        const scaledJitter = jitterAmplitude * Math.min(Math.max(viewport.zoom, 0.7), 1.4);
+        const mainPoints = drawJitterPath(sp1.x, sp1.y, sp2.x, sp2.y, scaledJitter);
 
         // 动态闪烁透明度
         const flicker = 0.8 + Math.random() * 0.2;
@@ -97,9 +112,9 @@ export const ElectricSparkCanvas: React.FC<ElectricSparkCanvasProps> = ({
 
         // 外层彩光晕层
         ctx.shadowColor = glow;
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 12 * viewport.zoom;
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2.8;
+        ctx.lineWidth = 2.8 * Math.min(Math.max(viewport.zoom, 0.75), 1.25);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -110,19 +125,19 @@ export const ElectricSparkCanvas: React.FC<ElectricSparkCanvasProps> = ({
         }
         ctx.stroke();
 
-        // 随机分裂出 1 根微小的次级分叉电火花 (Forked sub-arc)
-        if (Math.random() > 0.4 && mainPoints.length > 4) {
+        // 随机分裂出次级分叉 (Forked sub-arc)
+        if (Math.random() > 0.45 && mainPoints.length > 4) {
           const forkIndex = Math.floor(1 + Math.random() * (mainPoints.length - 3));
           const forkStart = mainPoints[forkIndex];
           const angle = Math.random() * Math.PI * 2;
-          const forkLen = 12 + Math.random() * 16;
+          const forkLen = (12 + Math.random() * 16) * viewport.zoom;
           const forkEnd = {
             x: forkStart.x + Math.cos(angle) * forkLen,
             y: forkStart.y + Math.sin(angle) * forkLen,
           };
-          const forkPoints = drawJitterPath(forkStart.x, forkStart.y, forkEnd.x, forkEnd.y, jitterAmplitude * 0.5, 4);
+          const forkPoints = drawJitterPath(forkStart.x, forkStart.y, forkEnd.x, forkEnd.y, scaledJitter * 0.5, 4);
 
-          ctx.lineWidth = 1.6;
+          ctx.lineWidth = 1.6 * viewport.zoom;
           ctx.beginPath();
           ctx.moveTo(forkPoints[0].x, forkPoints[0].y);
           for (let i = 1; i < forkPoints.length; i++) {
@@ -134,7 +149,7 @@ export const ElectricSparkCanvas: React.FC<ElectricSparkCanvasProps> = ({
         // 内层高能纯白芯
         ctx.shadowBlur = 2;
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1.2 * viewport.zoom;
         ctx.beginPath();
         ctx.moveTo(mainPoints[0].x, mainPoints[0].y);
         for (let i = 1; i < mainPoints.length; i++) {
@@ -144,25 +159,26 @@ export const ElectricSparkCanvas: React.FC<ElectricSparkCanvasProps> = ({
 
         ctx.restore();
 
-        // 产生击中目标处的微光粒子 (Embers)
+        // 撞击微光粒子 (Embers)
         if (enableEmberParticles && Math.random() > 0.3) {
           for (let i = 0; i < 2; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = 1.5 + Math.random() * 3.5;
+            const speed = (1.5 + Math.random() * 3.5) * viewport.zoom;
             particlesRef.current.push({
-              x: p2.x,
-              y: p2.y,
+              x: sp2.x,
+              y: sp2.y,
               vx: Math.cos(angle) * speed,
               vy: Math.sin(angle) * speed,
               alpha: 1.0,
-              size: 1 + Math.random() * 2,
+              size: (1 + Math.random() * 2) * viewport.zoom,
               life: 18 + Math.random() * 14,
+              color,
             });
           }
         }
       }
 
-      // 2. 渲染并更新粒子飞溅 (Ember Particles)
+      // 2. 渲染微粒子
       if (particlesRef.current.length > 0) {
         ctx.save();
         for (let i = particlesRef.current.length - 1; i >= 0; i--) {
@@ -178,7 +194,7 @@ export const ElectricSparkCanvas: React.FC<ElectricSparkCanvasProps> = ({
             continue;
           }
 
-          ctx.fillStyle = activeSpark ? activeSpark.color : '#ffffff';
+          ctx.fillStyle = p.color;
           ctx.globalAlpha = p.alpha;
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -196,7 +212,7 @@ export const ElectricSparkCanvas: React.FC<ElectricSparkCanvasProps> = ({
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', resize);
     };
-  }, [activeSpark, jitterAmplitude, enableEmberParticles]);
+  }, [activeSpark, viewport, jitterAmplitude, enableEmberParticles]);
 
   return (
     <canvas
