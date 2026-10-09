@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Info } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import { FlowStage } from './components/spark-flow/FlowStage';
 import { ControlPanel } from './components/ControlPanel';
+import { ReactFlowDemo } from './playground/ReactFlowDemo';
 import type { PortTheme, FlowConfig } from './types';
 
-// 初始高饱和霓虹色彩主题
 const INITIAL_THEMES: Record<string, PortTheme> = {
   conditioning: {
     color: '#f59e0b',
@@ -32,11 +32,11 @@ const INITIAL_CONFIG: FlowConfig = {
 };
 
 export const App: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'standalone' | 'react-flow'>('standalone');
   const [portThemes, setPortThemes] = useState<Record<string, PortTheme>>(INITIAL_THEMES);
   const [config, setConfig] = useState<FlowConfig>(INITIAL_CONFIG);
 
   const handleThemeChange = (port: string, color: string) => {
-    // 自动根据 hex 生成带有透明度的 glow 色
     const hex = color.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16) || 255;
     const g = parseInt(hex.substring(2, 4), 16) || 255;
@@ -57,24 +57,11 @@ export const App: React.FC = () => {
     window.location.reload();
   };
 
-  const handleConnectAll = () => {
-    // 触发所有端口连接事件
-    const stageEl = document.querySelector('.canvas-dot-grid');
-    if (!stageEl) return;
-    const clickEvent = new MouseEvent('click', { bubbles: true });
-    document.querySelectorAll('.output-handle').forEach((h) => h.dispatchEvent(clickEvent));
-  };
-
-  const handleAutoPlay = () => {
-    // 重新触发重置和演示
-    window.location.reload();
-  };
-
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#0c0d10] font-sans">
-      {/* 顶部状态提示与品牌 */}
+      {/* 顶部状态提示与品牌导航 */}
       <header className="absolute top-5 left-6 right-6 z-30 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-white text-black font-extrabold flex items-center justify-center text-sm shadow-lg pointer-events-auto">
             ⚡
           </div>
@@ -82,7 +69,7 @@ export const App: React.FC = () => {
             <span className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
               SparkFlow
               <span className="text-[10px] font-normal px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                v0.1.0 Alpha
+                v0.1.0
               </span>
             </span>
             <span className="text-[10px] text-neutral-500">
@@ -91,14 +78,33 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* 顶部中央操作手感提示 */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[rgba(20,21,26,0.7)] border border-white/5 backdrop-blur-md text-xs text-neutral-400">
-          <Info size={13} className="text-amber-400" />
-          <span>支持多端触控与鼠标 · 拖拽连线至目标端口触发闪电吸附 · 点击已接端口可拔出</span>
+        {/* 核心功能：双模一键切换 (Segmented Control) */}
+        <div className="pointer-events-auto flex items-center p-1 rounded-full bg-[rgba(20,21,26,0.85)] border border-white/10 backdrop-blur-xl shadow-xl">
+          <button
+            onClick={() => setActiveTab('standalone')}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'standalone'
+                ? 'bg-white text-black shadow-sm'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            ⚡ 原生轻量引擎 (Standalone)
+          </button>
+          <button
+            onClick={() => setActiveTab('react-flow')}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
+              activeTab === 'react-flow'
+                ? 'bg-white text-black shadow-sm'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <Layers size={12} />
+            <span>React Flow 插件 (@xyflow)</span>
+          </button>
         </div>
 
         {/* 右侧 GitHub 链接 */}
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto flex items-center gap-2">
           <a
             href="https://github.com/life2you/spark-flow"
             target="_blank"
@@ -113,19 +119,23 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* 主画布与节点网络 */}
-      <FlowStage portThemes={portThemes} config={config} />
-
-      {/* 底部悬浮控制台 */}
-      <ControlPanel
-        config={config}
-        onConfigChange={setConfig}
-        portThemes={portThemes}
-        onThemeChange={handleThemeChange}
-        onReset={handleReset}
-        onConnectAll={handleConnectAll}
-        onAutoPlay={handleAutoPlay}
-      />
+      {/* 视图主体 */}
+      {activeTab === 'standalone' ? (
+        <>
+          <FlowStage portThemes={portThemes} config={config} />
+          <ControlPanel
+            config={config}
+            onConfigChange={setConfig}
+            portThemes={portThemes}
+            onThemeChange={handleThemeChange}
+            onReset={handleReset}
+            onConnectAll={() => {}}
+            onAutoPlay={() => {}}
+          />
+        </>
+      ) : (
+        <ReactFlowDemo />
+      )}
     </div>
   );
 };
