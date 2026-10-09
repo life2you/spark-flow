@@ -21,6 +21,16 @@ const INITIAL_THEMES: Record<string, PortTheme> = {
     glow: 'rgba(168, 85, 247, 0.65)',
     name: 'sampler',
   },
+  latent: {
+    color: '#3b82f6',
+    glow: 'rgba(59, 130, 246, 0.65)',
+    name: 'latent',
+  },
+  image: {
+    color: '#10b981',
+    glow: 'rgba(16, 185, 129, 0.65)',
+    name: 'image',
+  },
 };
 
 const INITIAL_CONFIG: FlowConfig = {

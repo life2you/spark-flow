@@ -41,6 +41,7 @@ export interface Connection {
   fromPort: string;
   toNodeId: string;
   toPort: string;
+  type: PortType;
   color: string;
   glow: string;
 }

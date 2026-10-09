@@ -22,7 +22,7 @@ import type {
   DraggingState,
   FlowConfig,
 } from '../../types';
-import { INITIAL_NODES, NODE_TEMPLATES } from '../../constants/presets';
+import { INITIAL_NODES, NODE_TEMPLATES, DEFAULT_PORT_THEMES } from '../../constants/presets';
 import { ElectricSparkCanvas } from './ElectricSparkCanvas';
 import { BezierWire } from './BezierWire';
 import { BorderBeam } from './BorderBeam';
@@ -227,11 +227,13 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
   // 连线与磁吸逻辑
   const createConnection = useCallback(
     (fromNodeId: string, fromPort: string, toNodeId: string, toPort: string, portType: PortType) => {
-      const theme = portThemes[portType] || {
-        color: '#ffffff',
-        glow: 'rgba(255,255,255,0.4)',
-        name: portType,
-      };
+      const theme =
+        portThemes[portType] ||
+        DEFAULT_PORT_THEMES[portType] || {
+          color: '#ffffff',
+          glow: 'rgba(255,255,255,0.4)',
+          name: portType,
+        };
 
       setConnections((prev) => {
         const filtered = prev.filter((c) => !(c.toNodeId === toNodeId && c.toPort === toPort));
@@ -243,6 +245,7 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
             fromPort,
             toNodeId,
             toPort,
+            type: portType,
             color: theme.color,
             glow: theme.glow,
           },
@@ -512,6 +515,14 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
           const isSelected = selectedNodeId === node.id;
           const isProcessingNode = node.type === 'processing';
 
+          // 检查该节点连入的输入连线与最后接入的通道类型
+          const inConns = connections.filter((c) => c.toNodeId === node.id);
+          const hasInConn = inConns.length > 0;
+          const lastInConn = inConns[inConns.length - 1];
+          const activeTheme = lastInConn
+            ? portThemes[lastInConn.type] || DEFAULT_PORT_THEMES[lastInConn.type]
+            : null;
+
           return (
             <NodeCard
               key={node.id}
@@ -531,14 +542,17 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
               onDelete={() => deleteNode(node.id)}
               className="pointer-events-auto"
             >
-              {/* 如果是核心聚合节点，具备激光边框跑道与侧边光柱 */}
-              {isProcessingNode && (
-                <BorderBeam
-                  active={beamActive || connections.filter((c) => c.toNodeId === node.id).length >= 3}
-                  color={portThemes[lastConnectedPort || 'conditioning']?.color || '#f59e0b'}
-                  activePort={lastConnectedPort}
-                />
-              )}
+              {/* 为所有被接入的节点（以及核心聚合卡片）赋予对应的激光流光与侧边通电晕染 */}
+              <BorderBeam
+                active={isProcessingNode ? (beamActive || inConns.length >= 3) : hasInConn}
+                color={
+                  activeTheme?.color ||
+                  (isProcessingNode
+                    ? portThemes[lastConnectedPort || 'conditioning']?.color || '#f59e0b'
+                    : '#10b981')
+                }
+                activePort={lastInConn?.type || lastConnectedPort}
+              />
 
               {/* 特殊节点内部主体内容 */}
               {node.type === 'prompt' && (
@@ -556,11 +570,39 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
                   {(node.data?.params as string) || 'euler · 24 steps'}
                 </div>
               )}
-              {node.type === 'image-preview' && (
-                <div className="h-32 rounded-xl bg-black/60 border border-white/5 flex items-center justify-center text-xs text-neutral-500 mb-2 overflow-hidden">
-                  <span className="flex items-center gap-1.5 opacity-60">
-                    <ImageIcon size={14} /> 等待输入生成图像
+              {node.type === 'vae-decode' && (
+                <div className="bg-[rgba(13,14,17,0.85)] border border-[rgba(255,255,255,0.05)] rounded-xl p-2.5 text-xs text-neutral-400 font-mono mb-2 flex items-center justify-between">
+                  <span>SDXL VAE · fp16</span>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-sans transition-colors ${
+                      hasInConn ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-neutral-800 text-neutral-500'
+                    }`}
+                  >
+                    {hasInConn ? 'Active' : 'Idle'}
                   </span>
+                </div>
+              )}
+              {node.type === 'image-preview' && (
+                <div className="h-36 rounded-xl bg-black/60 border border-white/10 flex items-center justify-center text-xs text-neutral-400 mb-2 overflow-hidden relative group">
+                  {hasInConn ? (
+                    <div className="w-full h-full relative animate-in fade-in duration-300">
+                      <img
+                        src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80"
+                        alt="AI Generated"
+                        className="w-full h-full object-cover rounded-xl"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2.5">
+                        <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          1024x1024 · 24 steps · 3.2s
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="flex items-center gap-1.5 opacity-50 font-mono text-[11px]">
+                      <ImageIcon size={14} /> 等待输入生成图像...
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -576,7 +618,7 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
                       id={inp.id}
                       type="target"
                       port={inp.type}
-                      theme={portThemes[inp.type]}
+                      theme={portThemes[inp.type] || DEFAULT_PORT_THEMES[inp.type]}
                       isConnected={isConn}
                       isSnapping={isSnapping}
                       showRipple={showRipple}
@@ -587,7 +629,7 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
                       className={`transition-all duration-200 ${
                         isConn ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
                       }`}
-                      style={{ color: portThemes[inp.type]?.color }}
+                      style={{ color: (portThemes[inp.type] || DEFAULT_PORT_THEMES[inp.type])?.color }}
                     >
                       <Check size={14} strokeWidth={2.5} />
                     </span>
@@ -606,7 +648,7 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
                       id={out.id}
                       type="source"
                       port={out.type}
-                      theme={portThemes[out.type]}
+                      theme={portThemes[out.type] || DEFAULT_PORT_THEMES[out.type]}
                       isConnected={isConn}
                       onPointerDown={(e) => handleSourcePointerDown(e, node.id, out.id, out.type)}
                     />
