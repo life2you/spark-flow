@@ -23,6 +23,7 @@ import type {
   FlowConfig,
 } from '../../types';
 import { INITIAL_NODES, NODE_TEMPLATES, DEFAULT_PORT_THEMES } from '../../constants/presets';
+import { generateNeonTheme, getGlowFromHex } from '../../core/color';
 import { ElectricSparkCanvas } from './ElectricSparkCanvas';
 import { BezierWire } from './BezierWire';
 import { BorderBeam } from './BorderBeam';
@@ -224,16 +225,27 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
     soundFX.playDisconnect();
   };
 
+  // 动态端口主题解析：用户配置优先，未设定时黄金分割智能生成霓虹色
+  const dynamicThemeCache = useRef<Record<string, PortTheme>>({});
+
+  const resolvePortTheme = useCallback(
+    (portType: PortType): PortTheme => {
+      if (portThemes[portType]) return portThemes[portType];
+      if (DEFAULT_PORT_THEMES[portType]) return DEFAULT_PORT_THEMES[portType];
+      if (dynamicThemeCache.current[portType]) return dynamicThemeCache.current[portType];
+
+      // 没有预设时，智能生成专属高饱和霓虹色并缓存
+      const generated = generateNeonTheme(portType);
+      dynamicThemeCache.current[portType] = generated;
+      return generated;
+    },
+    [portThemes]
+  );
+
   // 连线与磁吸逻辑
   const createConnection = useCallback(
     (fromNodeId: string, fromPort: string, toNodeId: string, toPort: string, portType: PortType) => {
-      const theme =
-        portThemes[portType] ||
-        DEFAULT_PORT_THEMES[portType] || {
-          color: '#ffffff',
-          glow: 'rgba(255,255,255,0.4)',
-          name: portType,
-        };
+      const theme = resolvePortTheme(portType);
 
       setConnections((prev) => {
         const filtered = prev.filter((c) => !(c.toNodeId === toNodeId && c.toPort === toPort));
@@ -266,8 +278,16 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
       setLastConnectedPort(portType);
       setBeamActive(true);
     },
-    [portThemes]
+    [resolvePortTheme]
   );
+
+  // 用户主动更改连线色彩
+  const handleUpdateConnectionColor = (connId: string, newColor: string) => {
+    const newGlow = getGlowFromHex(newColor);
+    setConnections((prev) =>
+      prev.map((c) => (c.id === connId ? { ...c, color: newColor, glow: newGlow } : c))
+    );
+  };
 
   const removeConnection = (toNodeId: string, toPort: string) => {
     soundFX.playDisconnect();
@@ -285,7 +305,7 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
     const center = getPortWorldCenter(portId);
     if (!center) return;
 
-    const theme = portThemes[portType] || { color: '#ffffff', glow: 'rgba(255,255,255,0.4)', name: portType };
+    const theme = resolvePortTheme(portType);
 
     // 移除已存在的该输出线
     setConnections((prev) => prev.filter((c) => !(c.fromNodeId === nodeId && c.fromPort === portId)));
@@ -326,7 +346,7 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
       fromPortType: portType,
       fromPoint: fromCenter,
       currentPoint: worldPoint,
-      theme: portThemes[portType] || { color: '#ffffff', glow: 'rgba(255,255,255,0.4)', name: portType },
+      theme: resolvePortTheme(portType),
       snappedTarget: null,
     });
   };
@@ -493,6 +513,7 @@ export const FlowStage: React.FC<FlowStageProps> = ({ portThemes, config }) => {
                 glow={conn.glow}
                 isActive={true}
                 onDisconnect={() => removeConnection(conn.toNodeId, conn.toPort)}
+                onColorChange={(newColor) => handleUpdateConnectionColor(conn.id, newColor)}
               />
             );
           })}

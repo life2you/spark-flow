@@ -1,5 +1,6 @@
 // 1. 核心数学、算法与音效
 export * from './core/types';
+export * from './core/color';
 export * from './core/ElectricArc';
 export * from './core/spline';
 export * from './core/audio';

@@ -9,6 +9,7 @@ interface BezierWireProps {
   isActive?: boolean;
   isDragging?: boolean;
   onDisconnect?: () => void;
+  onColorChange?: (newColor: string) => void;
 }
 
 export const BezierWire: React.FC<BezierWireProps> = ({
@@ -19,23 +20,24 @@ export const BezierWire: React.FC<BezierWireProps> = ({
   isActive = true,
   isDragging = false,
   onDisconnect,
+  onColorChange,
 }) => {
   // 计算平滑三次贝塞尔曲线
   const dx = Math.max(Math.abs(p2.x - p1.x) * 0.55, 45);
   const pathD = `M ${p1.x} ${p1.y} C ${p1.x + dx} ${p1.y}, ${p2.x - dx} ${p2.y}, ${p2.x} ${p2.y}`;
 
-  // 连线中点（用于悬停交互按钮）
+  // 连线中点
   const midX = (p1.x + p2.x) / 2;
   const midY = (p1.y + p2.y) / 2;
 
   return (
     <g className="group pointer-events-auto cursor-pointer">
-      {/* 隐藏的加粗点击响应层，便于鼠标点击选中/断开 */}
+      {/* 隐藏的加粗点击响应层 */}
       <path
         d={pathD}
         fill="none"
         stroke="transparent"
-        strokeWidth="18"
+        strokeWidth="20"
         onClick={onDisconnect}
       />
 
@@ -48,7 +50,7 @@ export const BezierWire: React.FC<BezierWireProps> = ({
         strokeLinecap="round"
         style={{
           filter: 'blur(4px)',
-          opacity: isActive ? 0.8 : 0.4,
+          opacity: isActive ? 0.85 : 0.4,
           transition: 'stroke 0.25s, opacity 0.25s',
         }}
       />
@@ -65,23 +67,73 @@ export const BezierWire: React.FC<BezierWireProps> = ({
         }}
       />
 
-      {/* 鼠标悬停在中点时显示微小的断开按钮 */}
-      {onDisconnect && (
+      {/* 拖拽末端白圆点 */}
+      {isDragging && (
+        <circle
+          cx={p2.x}
+          cy={p2.y}
+          r={6}
+          fill="#ffffff"
+          style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.85))' }}
+        />
+      )}
+
+      {/* 悬停在中点时显示的交互控制面板 (断开与快速调色) */}
+      {!isDragging && (onDisconnect || onColorChange) && (
         <g
-          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
           transform={`translate(${midX}, ${midY})`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDisconnect();
-          }}
         >
-          <circle r="10" fill="#1e2025" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-          <path
-            d="M -3 -3 L 3 3 M 3 -3 L -3 3"
-            stroke="#ef4444"
-            strokeWidth="1.5"
-            strokeLinecap="round"
+          {/* 背景小胶囊 */}
+          <rect
+            x="-24"
+            y="-12"
+            width="48"
+            height="24"
+            rx="12"
+            fill="#18191e"
+            stroke="rgba(255,255,255,0.18)"
+            strokeWidth="1"
+            filter="drop-shadow(0 4px 10px rgba(0,0,0,0.6))"
           />
+
+          {/* 调色板按钮与原生隐藏 color input */}
+          {onColorChange && (
+            <g transform="translate(-11, 0)">
+              <title>自定义线条色彩</title>
+              <circle r="6" fill={color} stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
+              <foreignObject x="-7" y="-7" width="14" height="14">
+                <input
+                  type="color"
+                  value={color.startsWith('#') ? color : '#f59e0b'}
+                  onChange={(e) => onColorChange(e.target.value)}
+                  className="w-full h-full opacity-0 cursor-pointer"
+                  title="点击自定义颜色"
+                />
+              </foreignObject>
+            </g>
+          )}
+
+          {/* 断开按钮 */}
+          {onDisconnect && (
+            <g
+              transform="translate(11, 0)"
+              className="cursor-pointer hover:scale-115 transition-transform"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDisconnect();
+              }}
+            >
+              <title>断开此连接</title>
+              <circle r="6" fill="rgba(239,68,68,0.2)" stroke="rgba(239,68,68,0.6)" strokeWidth="1" />
+              <path
+                d="M -2.5 -2.5 L 2.5 2.5 M 2.5 -2.5 L -2.5 2.5"
+                stroke="#ef4444"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+              />
+            </g>
+          )}
         </g>
       )}
     </g>
