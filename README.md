@@ -1,8 +1,6 @@
 # ⚡ SparkFlow
 
 > A modern, high-performance node flow canvas with physics-based electric arc snapping and laser border beam animations.
-> 
-> **Inspired by Limns** (@小红书: 26444935124)
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)

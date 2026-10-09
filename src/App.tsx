@@ -86,7 +86,7 @@ export const App: React.FC = () => {
               </span>
             </span>
             <span className="text-[10px] text-neutral-500">
-              Inspired by Limns UI · Physics Electric Arc & Spline Canvas
+              Physics Electric Arc & Spline Canvas
             </span>
           </div>
         </div>
